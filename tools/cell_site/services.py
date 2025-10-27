@@ -3,11 +3,8 @@ from werkzeug.utils import secure_filename
 import os
 import time
 
-# Import your existing site.py module
-try:
-    from . import site
-except ImportError:
-    import site
+# Import the renamed module (avoid conflict with Python's built-in 'site')
+from . import cell_site_processing as site
 
 class CellSiteService:
     
@@ -37,7 +34,7 @@ class CellSiteService:
         
         current_app.logger.info(f"Output directory: {outdir}")
         
-        # Setup logger
+        # Setup logger from cell_site_processing.py
         site.setup_logger(outdir, tag=params['method'])
         
         # Process based on method
@@ -46,12 +43,12 @@ class CellSiteService:
                 results = site.run_noml(
                     input_path=filepath,
                     outdir=outdir,
-                    min_samples=params['min_samples'],
-                    bin_size=params['bin_size'],
-                    soft_spacing=params['soft_spacing'],
-                    use_ta=params['use_ta'],
-                    make_map=params['make_map'],
-                    merge_sites=params['soft_spacing']
+                    min_samples=params.get('min_samples', 30),
+                    bin_size=params.get('bin_size', 5),
+                    soft_spacing=params.get('soft_spacing', False),
+                    use_ta=params.get('use_ta', False),
+                    make_map=params.get('make_map', False),
+                    merge_sites=params.get('soft_spacing', False)
                 )
             else:  # ML method
                 results = site.run_ml(
@@ -59,43 +56,35 @@ class CellSiteService:
                     model_path=params.get('model_path'),
                     input_path=filepath,
                     outdir=outdir,
-                    min_samples=params['min_samples'],
-                    bin_size=params['bin_size'],
-                    soft_spacing=params['soft_spacing'],
-                    make_map=params['make_map']
+                    min_samples=params.get('min_samples', 30),
+                    bin_size=params.get('bin_size', 5),
+                    soft_spacing=params.get('soft_spacing', False),
+                    make_map=params.get('make_map', False)
                 )
             
-            # If using S3, upload results
-            if current_app.config.get('USE_S3'):
-                from utils.storage import S3Storage
-                storage = S3Storage()
-                s3_results = storage.upload_directory(outdir, f'cellsite_{timestamp}')
-                
-                return {
-                    'success': True,
-                    'results': s3_results,
-                    'output_dir': f'cellsite_{timestamp}',
-                    'message': 'File processed and uploaded to S3',
-                    'storage': 's3'
-                }
-            else:
-                # Local storage
-                relative_results = {}
-                for key, path in results.items():
-                    if path and os.path.exists(path):
-                        relative_results[key] = os.path.basename(path)
-                
-                return {
-                    'success': True,
-                    'results': relative_results,
-                    'output_dir': os.path.basename(outdir),
-                    'message': 'File processed successfully',
-                    'storage': 'local',
-                    'note': 'Files stored temporarily and will be deleted after 24 hours'
-                }
+            # Local storage - convert results to relative paths
+            relative_results = {}
+            for key, path in results.items():
+                if path and os.path.exists(path):
+                    relative_results[key] = os.path.basename(path)
+            
+            return {
+                'success': True,
+                'results': relative_results,
+                'output_dir': os.path.basename(outdir),
+                'message': 'File processed successfully',
+                'storage': 'local'
+            }
+        
+        except Exception as e:
+            current_app.logger.error(f"Processing error: {str(e)}", exc_info=True)
+            raise
         
         finally:
             # Cleanup uploaded file
             if os.path.exists(filepath):
-                os.remove(filepath)
-                current_app.logger.info(f"Cleaned up: {filepath}")
+                try:
+                    os.remove(filepath)
+                    current_app.logger.info(f"Cleaned up: {filepath}")
+                except Exception as e:
+                    current_app.logger.warning(f"Cleanup failed: {e}")
