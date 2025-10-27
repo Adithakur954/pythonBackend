@@ -1,0 +1,50 @@
+services:
+  # Main Backend API
+  - type: web
+    name: multi-tool-backend
+    env: python
+    region: oregon  # or singapore, frankfurt, ohio
+    plan: starter  # Free tier, upgrade to starter/standard for production
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 300 --log-level info
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true  # Auto-generate secret
+      - key: MAX_CONTENT_LENGTH
+        value: 104857600  # 100MB
+      - key: CORS_ORIGINS
+        value: "*"  # Update with your frontend URL after deployment
+      - key: OSM_TIMEOUT
+        value: 180
+      - key: OSM_USE_CACHE
+        value: "true"
+      # Add these from Render dashboard (secret):
+      # - AWS_ACCESS_KEY_ID
+      # - AWS_SECRET_ACCESS_KEY
+      # - S3_BUCKET_NAME
+    
+    healthCheckPath: /health
+    
+    autoDeploy: true  # Auto-deploy on git push
+    
+    # Scaling (for paid plans)
+    # scaling:
+    #   minInstances: 1
+    #   maxInstances: 3
+    #   targetMemoryPercent: 80
+    #   targetCPUPercent: 80
+
+# Optional: Add Redis for caching (paid)
+# - type: redis
+#   name: backend-cache
+#   plan: starter
+#   maxmemoryPolicy: allkeys-lru
+
+# Optional: PostgreSQL for data persistence (paid)
+# - type: pdb
+#   name: backend-db
+#   plan: starter
