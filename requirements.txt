@@ -5,11 +5,18 @@ Werkzeug==3.0.1
 gunicorn==21.2.0
 python-dotenv==1.0.0
 
-# Data processing - Windows compatible versions
+# Data processing
 pandas==2.0.3
 numpy==1.24.3
 openpyxl==3.1.2
 xlrd==2.0.1
 
-# Geospatial - Use conda-forge or wheels
-# We'll install these separately
+# === ADD THESE ===
+
+# Geospatial
+osmnx
+geopandas
+shapely
+
+# AWS S3 Storage
+boto3
